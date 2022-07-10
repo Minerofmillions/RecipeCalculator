@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "minerofmillions"
-version = "1.0-SNAPSHOT"
+version = "0.0.1"
 
 repositories {
 	google()
@@ -35,7 +35,7 @@ kotlin {
 
 compose.desktop {
 	application {
-		mainClass = "MainKt"
+		mainClass = "minerofmillions.recipeapp.ui.MainKt"
 		nativeDistributions {
 			targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
 			packageName = "recipeapp"
