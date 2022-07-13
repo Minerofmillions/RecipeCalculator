@@ -3,13 +3,13 @@ package minerofmillions.recipeapp.data
 import com.google.gson.JsonDeserializationContext
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonElement
-import minerofmillions.recipeapp.data.recipeentities.TerrariaItem.Companion.comparator
 import java.lang.reflect.Type
 
 class ItemStack(val item: String, val amount: Rational) : Comparable<ItemStack> {
 	override infix fun compareTo(other: ItemStack): Int = comparator.compare(this, other)
 	
 	override fun toString(): String = "$amount * $item"
+	fun toString(digits: Int) = "${amount.toString(digits)} * $item"
 	
 	object Serializer : JsonDeserializer<ItemStack> {
 		override fun deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext): ItemStack =

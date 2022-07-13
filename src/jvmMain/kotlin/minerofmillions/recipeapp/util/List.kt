@@ -12,3 +12,5 @@ fun <E> List<List<E>>.permutations(): Sequence<List<E>> = if (isEmpty()) sequenc
 else dropLast(1).permutations().flatMap { p -> last().map(p::originalPlus) }
 
 fun <E> E.plus(list: Iterable<E>): List<E> = listOf(this).originalPlus(list)
+
+fun <E> List<E>.contentsEqualOrderless(other: List<E>) = this.size == other.size && all(other::contains) && other.all(this::contains)

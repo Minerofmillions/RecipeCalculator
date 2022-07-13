@@ -1,6 +1,7 @@
 package minerofmillions.recipeapp.data
 
 import androidx.compose.runtime.mutableStateListOf
+import minerofmillions.recipeapp.util.contentsEqualOrderless
 
 class Recipe(val name: String, input: Collection<ItemStack>, output: Collection<ItemStack>) {
 	private val _inputs = mutableStateListOf<ItemStack>()
@@ -8,6 +9,12 @@ class Recipe(val name: String, input: Collection<ItemStack>, output: Collection<
 	
 	val inputs: List<ItemStack> = this._inputs
 	val outputs: List<ItemStack> = this._outputs
+	
+	override fun equals(other: Any?): Boolean = when (other) {
+		null -> false
+		!is Recipe -> false
+		else -> other.name == name && inputs.contentsEqualOrderless(other.inputs) && outputs.contentsEqualOrderless(other.outputs)
+	}
 	
 	init {
 		generateIO(input, output, this._inputs, this._outputs)
