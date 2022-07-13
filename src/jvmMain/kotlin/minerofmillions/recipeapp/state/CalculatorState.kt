@@ -24,6 +24,13 @@ class CalculatorState internal constructor(private val scope: CoroutineScope) {
 	var loadingRecipes by mutableStateOf(false)
 		private set
 	
+	var items: List<TerrariaItem> by mutableStateOf(emptyList())
+		private set
+	var enemies: List<TerrariaEnemy> by mutableStateOf(emptyList())
+		private set
+	var itemSelector: (TerrariaItem) -> String = { it.name }
+		private set
+	
 	private val _recipes = mutableStateListOf<Recipe>()
 	private val _products = mutableStateListOf<ItemStack>()
 	
@@ -32,6 +39,9 @@ class CalculatorState internal constructor(private val scope: CoroutineScope) {
 	val recipes: List<Recipe> = _recipes
 	val products: List<ItemStack> = _products
 	
+	fun stopLoadingRecipes() {
+		loadJob?.cancel()
+	}
 	fun loadRecipes() {
 		loadJob = scope.launch(Dispatchers.IO) {
 			loadingRecipes = true
@@ -41,78 +51,61 @@ class CalculatorState internal constructor(private val scope: CoroutineScope) {
 			val saverDir = FileSystemView.getFileSystemView().defaultDirectory.resolve(
 				"My Games", "Terraria", "tModLoader", "Saver"
 			)
-			val items = File(saverDir, "Items.json").takeIf(File::exists)?.reader()?.use { reader ->
+			items = File(saverDir, "Items.json").takeIf(File::exists)?.reader()?.use { reader ->
 				gson.fromJson<Set<TerrariaItem>>(reader, object : TypeToken<Set<TerrariaItem>>() {}.type).filterNot { it.type == 0 }.sorted()
 			} ?: error("Could not find Items.json")
-			val enemies = File(saverDir, "Enemies.json").takeIf(File::exists)?.reader()?.use { reader ->
+			enemies = File(saverDir, "Enemies.json").takeIf(File::exists)?.reader()?.use { reader ->
 				gson.fromJson<Set<TerrariaEnemy>>(reader, object : TypeToken<Set<TerrariaEnemy>>() {}.type).filterNot { it.type == 0 }.sorted()
 			} ?: error("Could not find Enemies.json")
 			val recipes = File(saverDir, "Recipes.json").takeIf(File::exists)?.reader()?.use {
 				gson.fromJson<List<TerrariaRecipe>>(it, object : TypeToken<List<TerrariaRecipe>>() {}.type).sorted()
 			} ?: error("Could not find Recipes.json")
 			
-			val itemsByName = items.groupBy(TerrariaItem::name)
-			val allRecipes = if (itemsByName.any { it.value.count() > 1 }) generateIdRecipes(
-				items, enemies, recipes
-			)
-			else generateNameRecipes(items, enemies, recipes)
+			itemSelector = if (items.groupBy(TerrariaItem::name).none { it.value.size > 1 }) TerrariaItem::name
+			else if (items.groupBy(TerrariaItem::namespacedName).none { it.value.size > 1 }) TerrariaItem::namespacedName
+			else {
+				{ it.type.toString() }
+			}
 			
-			_recipes.addAll(allRecipes)
+			_recipes.addAll(generateRecipes(recipes))
 		}.apply { invokeOnCompletion { loadingRecipes = false } }
 	}
 	
-	private fun generateIdRecipes(
-		items: List<TerrariaItem>,
-		enemies: List<TerrariaEnemy>,
-		recipes: List<TerrariaRecipe>,
-	) = generateRecipes(items, enemies, recipes) {
-		it.type.toString()
-	}
-	
-	private fun generateNameRecipes(
-		items: List<TerrariaItem>,
-		enemies: List<TerrariaEnemy>,
-		recipes: List<TerrariaRecipe>,
-	) = generateRecipes(items, enemies, recipes, TerrariaItem::name)
-	
 	private fun generateRecipes(
-		items: List<TerrariaItem>,
-		enemies: List<TerrariaEnemy>,
 		recipes: List<TerrariaRecipe>,
-		stackItemSelector: (TerrariaItem) -> String,
 	): Sequence<Recipe> = sequence {
 		for (item in items) {
 			if (item.type == 0 || item.type in 71..74) continue
 			if (item.value > 0) {
 				yield(
 					Recipe(
-						"Sell ${item.name}",
-						listOf(stackItemSelector(item) * 1),
+						"Sell: ${itemSelector(item)}",
+						listOf(itemSelector(item) * 1),
 						generateCoins(item.value / 5,
-							(71..74).map { id -> stackItemSelector(items.first { it.type == id }) })
+							(71..74).map { id -> itemSelector(items.first { it.type == id }) })
 					)
 				)
 			}
 		}
 		for (enemy in enemies) {
 			if (enemy.type == 0) continue
-			if (enemy.masterDrops.isNotEmpty()) yield(Recipe("Kill (M) ${enemy.name}",
+			if (enemy.masterDrops.isNotEmpty()) yield(Recipe("Kill: (M) ${enemy.name}",
 				emptyList(),
-				items.map { stackItemSelector(it) * enemy.masterDrops.getValue(it.type) }.filter { it.amount > 0 })
+				items.map { itemSelector(it) * enemy.masterDrops.getValue(it.type) }.filter { it.amount > 0 })
 			)
-			if (enemy.expertDrops.isNotEmpty()) yield(Recipe("Kill (E) ${enemy.name}",
+			if (enemy.expertDrops.isNotEmpty()) yield(Recipe("Kill: (E) ${enemy.name}",
 				emptyList(),
-				items.map { stackItemSelector(it) * enemy.expertDrops.getValue(it.type) }.filter { it.amount > 0 })
+				items.map { itemSelector(it) * enemy.expertDrops.getValue(it.type) }.filter { it.amount > 0 })
 			)
-			if (enemy.normalDrops.isNotEmpty() || enemy.globalDrops.isNotEmpty()) yield(Recipe("Kill ${enemy.name}",
+			if (enemy.normalDrops.isNotEmpty() || enemy.globalDrops.isNotEmpty()) yield(Recipe("Kill: ${enemy.name}",
 				emptyList(),
-				items.map { stackItemSelector(it) * enemy.normalDrops.getValue(it.type) }.filter { it.amount > 0 })
+				items.map { itemSelector(it) * enemy.normalDrops.getValue(it.type) }.filter { it.amount > 0 })
 			)
 		}
 		
 		for (recipe in recipes) {
-			val requiredItems = recipe.requiredItems.map { item -> stackItemSelector(items.first { it.type == item.item }) * item.amount }
-			val createItem = stackItemSelector(items.first { it.type == recipe.createItem.item }) * recipe.createItem.amount
+			val requiredItems = recipe.requiredItems.map { item -> itemSelector(items.first { it.type == item.item }) * item.amount }
+			val createItem = itemSelector(items.first { it.type == recipe.createItem.item }) * recipe.createItem.amount
 			yield(Recipe("${recipe.requiredTiles} ${recipe.createItem}", requiredItems, listOf(createItem)))
 		}
 	}
