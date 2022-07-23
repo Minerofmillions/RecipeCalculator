@@ -11,10 +11,7 @@ import kotlinx.coroutines.launch
 import minerofmillions.recipeapp.data.ItemStack
 import minerofmillions.recipeapp.data.Rational
 import minerofmillions.recipeapp.data.Recipe
-import minerofmillions.recipeapp.data.recipeentities.TerrariaEnemy
-import minerofmillions.recipeapp.data.recipeentities.TerrariaItem
-import minerofmillions.recipeapp.data.recipeentities.TerrariaItemStack
-import minerofmillions.recipeapp.data.recipeentities.TerrariaRecipe
+import minerofmillions.recipeapp.data.recipeentities.*
 import minerofmillions.recipeapp.data.times
 import minerofmillions.recipeapp.util.resolve
 import java.io.File
@@ -42,6 +39,7 @@ class CalculatorState internal constructor(private val scope: CoroutineScope) {
 	fun stopLoadingRecipes() {
 		loadJob?.cancel()
 	}
+	
 	fun loadRecipes() {
 		loadJob = scope.launch(Dispatchers.IO) {
 			loadingRecipes = true
@@ -52,17 +50,21 @@ class CalculatorState internal constructor(private val scope: CoroutineScope) {
 				"My Games", "Terraria", "tModLoader", "Saver"
 			)
 			items = File(saverDir, "Items.json").takeIf(File::exists)?.reader()?.use { reader ->
-				gson.fromJson<Set<TerrariaItem>>(reader, object : TypeToken<Set<TerrariaItem>>() {}.type).filterNot { it.type == 0 }.sorted()
+				gson.fromJson<Set<TerrariaItem>>(reader, object : TypeToken<Set<TerrariaItem>>() {}.type)
+					.filterNot { it.type == 0 }.sorted()
 			} ?: error("Could not find Items.json")
 			enemies = File(saverDir, "Enemies.json").takeIf(File::exists)?.reader()?.use { reader ->
-				gson.fromJson<Set<TerrariaEnemy>>(reader, object : TypeToken<Set<TerrariaEnemy>>() {}.type).filterNot { it.type == 0 }.sorted()
+				gson.fromJson<Set<TerrariaEnemy>>(reader, object : TypeToken<Set<TerrariaEnemy>>() {}.type)
+					.filterNot { it.type == 0 }.sorted()
 			} ?: error("Could not find Enemies.json")
 			val recipes = File(saverDir, "Recipes.json").takeIf(File::exists)?.reader()?.use {
 				gson.fromJson<List<TerrariaRecipe>>(it, object : TypeToken<List<TerrariaRecipe>>() {}.type).sorted()
 			} ?: error("Could not find Recipes.json")
 			
 			itemSelector = if (items.groupBy(TerrariaItem::name).none { it.value.size > 1 }) TerrariaItem::name
-			else if (items.groupBy(TerrariaItem::namespacedName).none { it.value.size > 1 }) TerrariaItem::namespacedName
+			else if (items.groupBy(TerrariaItem::namespacedName)
+					.none { it.value.size > 1 }
+			) TerrariaItem::namespacedName
 			else {
 				{ it.type.toString() }
 			}
@@ -104,7 +106,8 @@ class CalculatorState internal constructor(private val scope: CoroutineScope) {
 		}
 		
 		for (recipe in recipes) {
-			val requiredItems = recipe.requiredItems.map { item -> itemSelector(items.first { it.type == item.item }) * item.amount }
+			val requiredItems =
+				recipe.requiredItems.map { item -> itemSelector(items.first { it.type == item.item }) * item.amount }
 			val createItem = itemSelector(items.first { it.type == recipe.createItem.item }) * recipe.createItem.amount
 			yield(Recipe("${recipe.requiredTiles} ${recipe.createItem}", requiredItems, listOf(createItem)))
 		}
