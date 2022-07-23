@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -42,5 +44,6 @@ fun <T> FilteredListView(
 	modifier: Modifier = Modifier,
 	content: @Composable (T) -> Unit,
 ) {
-	ListView(list.filter(filter), onItemShortClick, onItemLongClick, modifier, content)
+	val filteredList by derivedStateOf { list.filter(filter) }
+	ListView(filteredList, onItemShortClick, onItemLongClick, modifier, content)
 }
