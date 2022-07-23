@@ -138,6 +138,7 @@ class CalculatorState internal constructor(private val scope: CoroutineScope) {
 		private val gson: Gson = GsonBuilder().registerTypeAdapter(ItemStack::class.java, ItemStack.Serializer)
 			.registerTypeAdapter(Rational::class.java, Rational.Serializer)
 			.registerTypeAdapter(TerrariaLoot::class.java, TerrariaLoot.Serializer)
+			.registerTypeAdapter(TerrariaItem::class.java, TerrariaItem.Serializer)
 			.registerTypeAdapter(TerrariaItemStack::class.java, TerrariaItemStack.Serializer).create()
 	}
 }
