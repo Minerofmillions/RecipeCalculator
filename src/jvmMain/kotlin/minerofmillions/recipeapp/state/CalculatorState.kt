@@ -47,7 +47,7 @@ class CalculatorState internal constructor(private val scope: CoroutineScope) {
 			_products.clear()
 			
 			val saverDir = FileSystemView.getFileSystemView().defaultDirectory.resolve(
-				"My Games", "Terraria", "tModLoader", "Saver"
+				"My Games", "Terraria", "tModLoader-preview", "Saver"
 			)
 			items = File(saverDir, "Items.json").takeIf(File::exists)?.reader()?.use { reader ->
 				gson.fromJson<Set<TerrariaItem>>(reader, object : TypeToken<Set<TerrariaItem>>() {}.type)
@@ -78,30 +78,37 @@ class CalculatorState internal constructor(private val scope: CoroutineScope) {
 	): Sequence<Recipe> = sequence {
 		for (item in items) {
 			if (item.type == 0 || item.type in 71..74) continue
-			if (item.value > 0) {
-				yield(
-					Recipe(
-						"Sell: ${itemSelector(item)}",
-						listOf(itemSelector(item) * 1),
-						generateCoins(item.value / 5,
-							(71..74).map { id -> itemSelector(items.first { it.type == id }) })
-					)
+			if (item.value > 0) yield(
+				Recipe(
+					"Sell: ${itemSelector(item)}",
+					listOf(itemSelector(item) * 1),
+					generateCoins(item.value / 5, (71..74).map { id -> itemSelector(items.first { it.type == id }) })
 				)
-			}
+			)
+			if (item.bagItems.isNotEmpty()) yield(
+				Recipe("Open: ${itemSelector(item)}",
+					listOf(itemSelector(item) * 1),
+					item.bagItems.mapNotNull { (i, conditionals) -> conditionals[""]?.let { amount -> itemSelector(items.first { it.type == i }) * amount } })
+			)
+			if (item.extractinatorItems.isNotEmpty()) yield(
+				Recipe("Extractinate: ${itemSelector(item)}",
+					listOf(itemSelector(item) * 1),
+					item.extractinatorItems.map { (item, amount) -> itemSelector(items.first { it.type == item }) * amount })
+			)
 		}
 		for (enemy in enemies) {
 			if (enemy.type == 0) continue
-			if (enemy.masterDrops.isNotEmpty()) yield(Recipe("Kill: (M) ${enemy.name}",
+			if (enemy.drops.hasMasterDrops()) yield(Recipe("Kill: (M) ${enemy.name}",
 				emptyList(),
-				items.map { itemSelector(it) * enemy.masterDrops.getValue(it.type) }.filter { it.amount > 0 })
+				items.map { itemSelector(it) * enemy.drops.getMasterDrop(it.type) }.filter { it.amount > 0 })
 			)
-			if (enemy.expertDrops.isNotEmpty()) yield(Recipe("Kill: (E) ${enemy.name}",
+			if (enemy.drops.hasExpertDrops()) yield(Recipe("Kill: (E) ${enemy.name}",
 				emptyList(),
-				items.map { itemSelector(it) * enemy.expertDrops.getValue(it.type) }.filter { it.amount > 0 })
+				items.map { itemSelector(it) * enemy.drops.getExpertDrop(it.type) }.filter { it.amount > 0 })
 			)
-			if (enemy.normalDrops.isNotEmpty() || enemy.globalDrops.isNotEmpty()) yield(Recipe("Kill: ${enemy.name}",
+			if (enemy.drops.hasNormalDrops()) yield(Recipe("Kill: ${enemy.name}",
 				emptyList(),
-				items.map { itemSelector(it) * enemy.normalDrops.getValue(it.type) }.filter { it.amount > 0 })
+				items.map { itemSelector(it) * enemy.drops.getNormalDrop(it.type) }.filter { it.amount > 0 })
 			)
 		}
 		
@@ -130,7 +137,7 @@ class CalculatorState internal constructor(private val scope: CoroutineScope) {
 	companion object {
 		private val gson: Gson = GsonBuilder().registerTypeAdapter(ItemStack::class.java, ItemStack.Serializer)
 			.registerTypeAdapter(Rational::class.java, Rational.Serializer)
-			.registerTypeAdapter(TerrariaEnemy::class.java, TerrariaEnemy.Serializer)
+			.registerTypeAdapter(TerrariaLoot::class.java, TerrariaLoot.Serializer)
 			.registerTypeAdapter(TerrariaItemStack::class.java, TerrariaItemStack.Serializer).create()
 	}
 }

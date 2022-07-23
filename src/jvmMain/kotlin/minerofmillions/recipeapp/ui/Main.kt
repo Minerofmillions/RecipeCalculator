@@ -8,6 +8,8 @@ import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import minerofmillions.recipeapp.state.CalculatorState
@@ -19,7 +21,10 @@ fun App() {
 	var darkMode by remember { mutableStateOf(true) }
 	val density = LocalDensity.current
 	val calculatorState = rememberCalculatorState()
-	MaterialTheme(colors = if (darkMode) darkColors() else lightColors()) {
+	MaterialTheme(
+		colors = if (darkMode) darkColors() else lightColors(),
+		typography = Typography(h1 = TextStyle(fontSize = 2.em), h2 = TextStyle(fontSize = 1.5.em))
+	) {
 		Scaffold(topBar = {
 			TopAppBar(actions = {
 				AppActions(calculatorState)
@@ -46,53 +51,52 @@ fun App() {
 					Tab(tab == 0, onClick = { tab = 0 }, text = { Text("Recipes") })
 					Tab(tab == 1, onClick = { tab = 1 }, text = { Text("Items") })
 				}
+				var recipeSearchTerm by remember { mutableStateOf("") }
+				var itemSearchTerm by remember { mutableStateOf("") }
 				when (tab) {
 					0 -> {
-						var searchTerm by remember { mutableStateOf("") }
-						val shownRecipes by remember {
-							derivedStateOf {
-								if (calculatorState.loadingRecipes) emptyList()
-								else calculatorState.recipes.filter { r ->
-									if (searchTerm.isEmpty()) true
-									else when {
-										searchTerm.startsWith("=>") -> r.outputs.any { it.item == searchTerm.substring(2) }
-										searchTerm.startsWith("<=") -> r.inputs.any { it.item == searchTerm.substring(2) }
-										searchTerm.startsWith('>') -> r.outputs.any { searchTerm.substring(1) in it.item }
-										searchTerm.startsWith('<') -> r.inputs.any { searchTerm.substring(1) in it.item }
-										else -> r.name.contains(searchTerm, true)
-									}
-								}
-							}
-						}
-						TextField(searchTerm,
-							{ searchTerm = it },
+						TextField(recipeSearchTerm,
+							{ recipeSearchTerm = it },
 							Modifier.fillMaxWidth(),
 							label = { Text("Search Recipes") })
-						ListView(shownRecipes) {
+						FilteredListView(calculatorState.recipes, { r ->
+							if (calculatorState.loadingRecipes) false else if (recipeSearchTerm.isEmpty()) true else when {
+								recipeSearchTerm.startsWith("=>") -> r.outputs.any {
+									it.item == recipeSearchTerm.substring(2)
+								}
+								recipeSearchTerm.startsWith("=<") -> r.inputs.any {
+									it.item == recipeSearchTerm.substring(2)
+								}
+								recipeSearchTerm.startsWith('>') -> r.outputs.any { recipeSearchTerm.substring(1) in it.item }
+								recipeSearchTerm.startsWith('<') -> r.inputs.any { recipeSearchTerm.substring(1) in it.item }
+								else -> r.name.contains(recipeSearchTerm, true)
+							}
+						}, onItemLongClick = { r ->
+							itemSearchTerm = "=" + (r.inputs.maxByOrNull { it.amount }?.item ?: "")
+							tab = 1
+						}, content = {
 							RecipeView(it)
-						}
+						})
 					}
 					1 -> {
-						var searchTerm by remember { mutableStateOf("") }
-						val shownItems by remember {
-							derivedStateOf {
-								if (calculatorState.loadingRecipes) emptyList()
-								else calculatorState.items.filter {
-									when {
-										searchTerm.startsWith('=') -> searchTerm.substring(1) == it.type.toString()
-										searchTerm.startsWith('@') -> searchTerm.substring(1) == it.mod
-										else -> Regex(searchTerm, RegexOption.IGNORE_CASE).containsMatchIn(it.name)
-									}
-								}
-							}
-						}
-						TextField(searchTerm,
-							{ searchTerm = it },
+						TextField(itemSearchTerm,
+							{ itemSearchTerm = it },
 							Modifier.fillMaxWidth(),
 							label = { Text("Search Items") })
-						ListView(shownItems) {
+						FilteredListView(calculatorState.items, {
+							if (calculatorState.loadingRecipes) false else when {
+								itemSearchTerm.startsWith('=') -> itemSearchTerm.substring(1) == calculatorState.itemSelector(
+									it
+								)
+								itemSearchTerm.startsWith('@') -> itemSearchTerm.substring(1) in it.mod
+								else -> it.name.contains(itemSearchTerm, true)
+							}
+						}, onItemLongClick = {
+							recipeSearchTerm = "=<${calculatorState.itemSelector(it)}"
+							tab = 0
+						}, content = {
 							ItemView(it)
-						}
+						})
 					}
 				}
 			}
