@@ -50,3 +50,9 @@ compose.desktop {
 		}
 	}
 }
+
+tasks.register<Zip>("buildDistributable") {
+	dependsOn("createDistributable")
+	from(layout.buildDirectory.dir("compose/binaries/main/app"))
+	archiveFileName.set("calculator.zip")
+}
