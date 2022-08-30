@@ -183,7 +183,7 @@ class CalculatorSolvingComponent(
 		products: Collection<ItemStack>,
 		isRate: Boolean,
 	): CalculationResult {
-		println(recipes)
+		if (recipes.isEmpty()) return CalculationResult.NoSolution
 		print("${recipes.size} recipes")
 		val allInputs = recipes.flatMapTo(sortedSetOf(), Recipe::inputItems)
 		val allOutputs = recipes.flatMapTo(sortedSetOf(), Recipe::outputItems)
