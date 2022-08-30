@@ -8,3 +8,6 @@ else first().let { first ->
 }
 
 fun <K, V> Collection<Map.Entry<K, V>>.toMap() = associate { it.key to it.value }
+
+fun <E> Collection<E>.contentsEqual(other: Collection<E>, ignoreOrder: Boolean = false) =
+	size == other.size && if (ignoreOrder) all(other::contains) && other.all(this::contains) else zip(other).all { it.first == it.second }

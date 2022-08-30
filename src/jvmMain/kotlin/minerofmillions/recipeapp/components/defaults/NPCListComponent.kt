@@ -1,7 +1,7 @@
 package minerofmillions.recipeapp.components.defaults
 
 import com.arkivanov.decompose.ComponentContext
-import minerofmillions.recipeapp.components.INpcList
+import minerofmillions.recipeapp.components.INPCList
 import minerofmillions.recipeapp.entities.saver.NPC
 
 class NPCListComponent(
@@ -9,7 +9,7 @@ class NPCListComponent(
 	override val npcList: List<NPC>,
 	private val onFinished: () -> Unit,
 	private val onNPCSelected: (NPC) -> Unit,
-) : INpcList, ComponentContext by context {
-	override fun onCloseClicked() = onFinished()
-	override fun onNpcClicked(npc: NPC) = onNPCSelected(npc)
+) : INPCList, ComponentContext by context {
+	override fun onBackClicked() = onFinished()
+	override fun onNPCClicked(npc: NPC) = onNPCSelected(npc)
 }

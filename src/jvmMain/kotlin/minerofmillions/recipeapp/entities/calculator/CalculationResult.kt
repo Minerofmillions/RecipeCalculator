@@ -14,13 +14,13 @@ sealed class CalculationResult {
 			val inputs = mutableListOf<ItemStack>()
 			val outputs = mutableListOf<ItemStack>()
 			
-			val ins = recipes.flatMap { (recipe, amount) -> recipe.inputs.map { it * amount } }.mergeStacks()
-			val outs = recipes.flatMap { (recipe, amount) -> recipe.outputs.map { it * amount } }.mergeStacks()
+			val ins = recipes.flatMap { (recipe, amount) -> recipe.inputs.map { it * amount } }
+			val outs = recipes.flatMap { (recipe, amount) -> recipe.outputs.map { it * amount } }
 			
 			Recipe.generateIO(ins, outs, inputs, outputs)
 			
-			combinedInputs = inputs
-			combinedOutputs = outputs
+			combinedInputs = inputs.sorted()
+			combinedOutputs = outputs.sorted()
 		}
 		
 		companion object {

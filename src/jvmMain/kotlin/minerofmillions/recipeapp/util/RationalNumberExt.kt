@@ -1,7 +1,14 @@
+@file:OptIn(ExperimentalTypeInference::class)
+
 package minerofmillions.recipeapp.util
 
+import com.google.gson.JsonDeserializationContext
+import com.google.gson.JsonDeserializer
+import com.google.gson.JsonElement
 import org.ojalgo.scalar.RationalNumber
+import java.lang.reflect.Type
 import java.math.BigDecimal
+import kotlin.experimental.ExperimentalTypeInference
 
 private val EPSILON = of(1, 1000000)
 
@@ -11,6 +18,10 @@ fun of(n: Long): RationalNumber = RationalNumber.of(n, 1L)
 fun of(s: String): RationalNumber = if ('/' in s) s.split('/', limit = 2).let { (n, d) ->
 	RationalNumber.valueOf(n) / RationalNumber.valueOf(d)
 } else RationalNumber.valueOf(BigDecimal(s))
+
+fun RationalNumber.toString(digits: Int) = toBigDecimal().let {
+	if (it.scale() > digits) "%.${digits}f".format(it) else it.toString()
+}
 
 operator fun RationalNumber.unaryMinus(): RationalNumber = this.negate()
 
@@ -29,8 +40,8 @@ operator fun RationalNumber.minus(other: Long): RationalNumber = subtract(of(oth
 operator fun RationalNumber.times(other: Long): RationalNumber = multiply(of(other))
 operator fun RationalNumber.div(other: Long): RationalNumber = divide(of(other))
 
-fun RationalNumber.aboutZero() = -this <= EPSILON && EPSILON <= this
-
+fun RationalNumber.aboutZero() = -EPSILON <= this && this <= EPSILON
+@OverloadResolutionByLambdaReturnType
 fun Collection<RationalNumber>.sumOf() = fold(RationalNumber.ZERO, RationalNumber::add)
 fun <T> Collection<T>.sumOf(selector: (T) -> RationalNumber): RationalNumber =
 	fold(RationalNumber.ZERO) { a, b -> a + selector(b) }
@@ -41,3 +52,11 @@ operator fun RationalNumber.rem(n: RationalNumber): RationalNumber = RationalNum
 
 fun RationalNumber.floor() = of(longValue())
 fun RationalNumber.ceil() = floor() + if (rem(1) > RationalNumber.ZERO) 1 else 0
+
+object RationalSerializer : JsonDeserializer<RationalNumber> {
+	override fun deserialize(json: JsonElement, typeOf: Type, context: JsonDeserializationContext): RationalNumber =
+		if (json.isJsonObject) json.asJsonObject.let { obj ->
+			RationalNumber.of(obj["numerator"].asLong, obj["denominator"].asLong)
+		}
+		else of(json.asString)
+}

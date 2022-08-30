@@ -11,8 +11,8 @@ data class Recipe(
 	val acceptedGroups: List<Int>
 ) : Comparable<Recipe> {
 	override fun compareTo(other: Recipe): Int = when {
-		mod != other.mod -> mod.compareTo(other.mod)
 		createItem != other.createItem -> createItem.compareTo(other.createItem)
+		mod != other.mod -> mod.compareTo(other.mod)
 		requiredItems.size != other.requiredItems.size -> requiredItems.size.compareTo(other.requiredItems.size)
 		else -> requiredItems.zip(other.requiredItems).map { it.first.compareTo(it.second) }.firstOrNull { it != 0 } ?: 0
 	}

@@ -24,6 +24,9 @@ kotlin {
 	}
 	sourceSets {
 		val jvmMain by getting {
+			repositories {
+				maven("https://jitpack.io")
+			}
 			dependencies {
 				implementation(compose.desktop.currentOs)
 				implementation("com.google.code.gson:gson:2.8.5")

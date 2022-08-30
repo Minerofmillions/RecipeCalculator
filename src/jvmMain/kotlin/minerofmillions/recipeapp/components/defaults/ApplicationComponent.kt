@@ -8,12 +8,20 @@ import com.arkivanov.decompose.value.Value
 import com.arkivanov.essenty.parcelable.Parcelable
 import com.arkivanov.essenty.parcelable.Parcelize
 import com.google.common.collect.HashBasedTable
+import com.google.gson.GsonBuilder
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 import minerofmillions.recipeapp.components.IApplication
 import minerofmillions.recipeapp.entities.calculator.CalculationKey
 import minerofmillions.recipeapp.entities.calculator.CalculationResult
+import minerofmillions.recipeapp.entities.calculator.ItemStack
 import minerofmillions.recipeapp.entities.calculator.Recipe
 import minerofmillions.recipeapp.entities.saver.*
-import minerofmillions.recipeapp.util.coroutineScope
+import minerofmillions.recipeapp.util.*
+import org.ojalgo.scalar.RationalNumber
+import java.io.File
+import javax.swing.filechooser.FileSystemView
 import minerofmillions.recipeapp.entities.calculator.Recipe as CalculatorRecipe
 import minerofmillions.recipeapp.entities.saver.Recipe as SaverRecipe
 
@@ -29,11 +37,53 @@ class ApplicationComponent(context: ComponentContext) : IApplication, ComponentC
 	override var configuration: DataFile = DataFile()
 		private set
 	
-	override val recipeList: List<SaverRecipe> = mutableStateListOf()
-	override val itemList: List<Item> = mutableStateListOf()
-	override val npcList: List<NPC> = mutableStateListOf()
+	override val recipeList = mutableStateListOf<SaverRecipe>()
+	override val itemList = mutableStateListOf<Item>()
+	override val npcList = mutableStateListOf<NPC>()
 	override val fishingData: LootTable = HashBasedTable.create()
-	override val groups: Map<Int, Group> = mutableStateMapOf()
+	override val groups = mutableStateMapOf<Int, Group>()
+	
+	init {
+		val listerDirectory =
+			FileSystemView.getFileSystemView().defaultDirectory.resolve("My Games", "Terraria", "tModLoader", "Saver")
+				.takeIf { it.exists() && it.isDirectory }
+				?: throw IllegalStateException("Saver directory not found. Please install tModLoader and RecipeSaver mod.")
+		val data = (listerDirectory.resolve("_Data.json").takeIf(File::exists)
+			?: throw IllegalStateException("_Data.json not found")).reader().use {
+			gson.fromJson(it, DataFile::class.java)
+		}
+		Item.extractinatorTests = data.ExtractinatorTests
+		val recipeAsync = scope.async {
+			listerDirectory.resolve("Recipes.json").reader().use {
+				gson.fromJson(it, Array<SaverRecipe>::class.java)
+			}.distinct()
+		}
+		val npcsAsync = scope.async {
+			listerDirectory.resolve("Enemies.json").reader().use {
+				gson.fromJson(it, Array<NPC>::class.java)
+			}.distinct().filterNot { it.type == 0 }
+		}
+		val itemsAsync = scope.async {
+			listerDirectory.resolve("Items.json").reader().use {
+				gson.fromJson(it, Array<Item>::class.java)
+			}.distinct().filterNot { it.type == 0 }
+		}
+		val groupsDeferred = scope.async {
+			listerDirectory.resolve("Groups.json").reader().use {
+				gson.fromJson<Map<Int, Group>>(it, object : TypeToken<Map<Int, Group>>() {}.type)
+			}
+		}
+		
+		runBlocking {
+			recipeList.addAll(recipeAsync.await())
+			recipeList.sort()
+			itemList.addAll(itemsAsync.await())
+			itemList.sort()
+			npcList.addAll(npcsAsync.await())
+			npcList.sort()
+			groups.putAll(groupsDeferred.await())
+		}
+	}
 	
 	private fun createChild(config: Config, componentContext: ComponentContext): IApplication.Child = when (config) {
 		is Config.MainScreen -> IApplication.Child.MainScreen(
@@ -59,7 +109,10 @@ class ApplicationComponent(context: ComponentContext) : IApplication, ComponentC
 		
 		is Config.ItemList -> IApplication.Child.ItemList(
 			ItemListComponent(
-				context = componentContext, itemList = itemList, onItemSelected = this::onItemDetailsSelected
+				context = componentContext,
+				itemList = itemList,
+				onItemSelected = this::onItemDetailsSelected,
+				onFinished = navigation::pop
 			)
 		)
 		
@@ -145,7 +198,11 @@ class ApplicationComponent(context: ComponentContext) : IApplication, ComponentC
 	}
 	
 	private fun onItemDetailsSelected(item: String) {
-		itemList.firstOrNull { it.type.toString() == item }?.let { onItemDetailsSelected(it) }
+		itemList.firstOrNull { it.type.toString() == item }?.let(::onItemDetailsSelected)
+	}
+	
+	private fun onItemDetailsSelected(item: Int) {
+		itemList.firstOrNull { it.type == item }?.let(::onItemDetailsSelected)
 	}
 	
 	private fun onItemDetailsSelected(item: Item) {
@@ -203,5 +260,11 @@ class ApplicationComponent(context: ComponentContext) : IApplication, ComponentC
 		
 		@Parcelize
 		data class CalculatorResult(val result: CalculationResult) : Config()
+	}
+	
+	companion object {
+		private val gson = GsonBuilder().registerTypeAdapter(ItemStack::class.java, ItemStack.Serializer)
+			.registerTypeAdapter(RationalNumber::class.java, RationalSerializer)
+			.registerTypeAdapter(LootTableTypeToken.type, LootTableSerializer).create()
 	}
 }

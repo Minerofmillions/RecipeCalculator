@@ -5,7 +5,7 @@ import minerofmillions.recipeapp.entities.calculator.Recipe
 
 interface ICalculatorResult {
 	val result: CalculationResult
-	fun onCloseClicked()
+	fun onBackClicked()
 	fun onItemClicked(item: String)
 	fun onRecipeClicked(recipe: Recipe)
 	

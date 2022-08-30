@@ -8,3 +8,11 @@ fun <K, V> Map<K, List<V>>.permutations(): Sequence<Map<K, V>> =
 			firstValue.map { mapOf(firstKey to it) + permutation }
 		}
 	}
+
+fun <K, V> Map<K, MutableCollection<V>>.removeFromAll(element: V) = values.forEach { it.remove(element) }
+
+fun <K, V1, V2> Map<K, V1>.zip(other: Map<K, V2>): Sequence<Triple<K, V1, V2>> =
+	keys.asSequence().filter(other::contains).map { Triple(it, get(it)!!, other[it]!!) }
+
+fun <K, V1, V2> Map<K, V1>.zipIncludeUnmatched(other: Map<K, V2>): Sequence<Triple<K, V1?, V2?>> =
+	(keys + other.keys).asSequence().map { Triple(it, get(it), other[it]) }

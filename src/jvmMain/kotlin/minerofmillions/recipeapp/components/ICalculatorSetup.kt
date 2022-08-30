@@ -13,10 +13,10 @@ interface ICalculatorSetup {
 	val npcs: List<NPC>
 	val groups: Map<Int, Group>
 	
-	val products: List<ItemStack>
-	val primitives: List<String>
+	val products: MutableList<ItemStack>
+	val primitives: MutableList<String>
 	val conditions: CalculatorConditions
 	
 	fun onSolveClicked(isRate: Boolean)
-	fun onCloseClicked()
+	fun onBackClicked()
 }

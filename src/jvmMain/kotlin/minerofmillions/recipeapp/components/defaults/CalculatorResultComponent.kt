@@ -12,7 +12,7 @@ class CalculatorResultComponent(
 	private val onClickItem: (String) -> Unit,
 	private val onClickRecipe: (Recipe) -> Unit
 ) : ICalculatorResult, ComponentContext by context {
-	override fun onCloseClicked() = onFinished()
+	override fun onBackClicked() = onFinished()
 	override fun onItemClicked(item: String) = onClickItem(item)
 	override fun onRecipeClicked(recipe: Recipe) = onClickRecipe(recipe)
 }

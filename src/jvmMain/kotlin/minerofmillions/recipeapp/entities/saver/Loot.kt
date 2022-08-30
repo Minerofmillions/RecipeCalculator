@@ -6,13 +6,29 @@ import com.google.common.collect.Table
 import com.google.gson.JsonDeserializationContext
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonElement
+import com.google.gson.reflect.TypeToken
 import minerofmillions.recipeapp.entities.calculator.CalculatorConditions
 import minerofmillions.recipeapp.entities.calculator.ItemStack
 import minerofmillions.recipeapp.util.aboutZero
+import minerofmillions.recipeapp.util.of
+import minerofmillions.recipeapp.util.plus
 import org.ojalgo.scalar.RationalNumber
 import java.lang.reflect.Type
 
 typealias LootTable = Table<Int, String, RationalNumber>
+
+object LootTableTypeToken : TypeToken<LootTable>()
+
+object LootTableSerializer : JsonDeserializer<LootTable> {
+	override fun deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext): LootTable =
+		HashBasedTable.create<Int, String, RationalNumber>().also { table ->
+			json.asJsonObject.entrySet().forEach { (item, conditionalDrops) ->
+				conditionalDrops.asJsonObject.entrySet().forEach { (condition, dropRate) ->
+					table.put(item.toInt(), condition, of(dropRate.asString))
+				}
+			}
+		}
+}
 
 class Loot(val globalLoot: LootTable, val normalLoot: LootTable, val expertLoot: LootTable, val masterLoot: LootTable) {
 	val conditions: Set<String>
@@ -20,10 +36,22 @@ class Loot(val globalLoot: LootTable, val normalLoot: LootTable, val expertLoot:
 	val items: Set<Int>
 		get() = globalLoot.rowKeySet() + normalLoot.rowKeySet() + expertLoot.rowKeySet() + masterLoot.rowKeySet()
 	
+	val hasNormalLoot
+		get() = !globalLoot.isEmpty || !normalLoot.isEmpty
+	val hasExpertLoot
+		get() = !expertLoot.isEmpty
+	val hasMasterLoot
+		get() = !masterLoot.isEmpty
+	
+	fun getMasterLootTable() = masterLoot + getExpertLootTable()
+	fun getExpertLootTable() = expertLoot + getNormalLootTable()
+	fun getNormalLootTable() = normalLoot + globalLoot
+	
 	operator fun contains(item: Int): Boolean = item in items
 	operator fun contains(condition: String): Boolean = condition in conditions
 	
-	fun isNotEmpty() = !globalLoot.isEmpty() || !normalLoot.isEmpty() || !expertLoot.isEmpty() || !masterLoot.isEmpty()
+	val isNotEmpty
+		get() = !globalLoot.isEmpty || !normalLoot.isEmpty || !expertLoot.isEmpty || !masterLoot.isEmpty
 	
 	fun getLoot(conditions: CalculatorConditions): List<ItemStack> = when (conditions.gameMode) {
 		CalculatorConditions.GameMode.NORMAL -> getNormalLoot(conditions)

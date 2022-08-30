@@ -2,8 +2,8 @@ package minerofmillions.recipeapp.components
 
 import minerofmillions.recipeapp.entities.saver.NPC
 
-interface INpcList {
+interface INPCList {
 	val npcList: List<NPC>
-	fun onNpcClicked(npc: NPC)
-	fun onCloseClicked()
+	fun onNPCClicked(npc: NPC)
+	fun onBackClicked()
 }
